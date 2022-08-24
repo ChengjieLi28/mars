@@ -33,7 +33,7 @@ function obtain_real_workers_file() {
 
 function stop_all_docker_containers() {
   if [ "$(sudo docker ps | wc -l)" -gt 1 ]; then
-    sudo docker stop "$(sudo docker ps -aq)"
+    sudo docker stop "$(sudo docker ps -q)"
   fi
 }
 
@@ -44,7 +44,7 @@ hosts_file_path=$(obtain_real_workers_file "$hosts_file_path" "$available_worker
 
 # stop all the previous docker containers
 stop_all_docker_containers
-pssh -h "$hosts_file_path" 'if sudo docker stop $(sudo docker ps -aq) ; then echo Stopped; fi'
+pssh -h "$hosts_file_path" 'if sudo docker stop $(sudo docker ps -q) ; then echo Stopped; fi'
 
 # pull mars image
 commit_image="xorbits/mars:"$commit_id
