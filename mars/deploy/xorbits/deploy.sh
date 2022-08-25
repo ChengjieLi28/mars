@@ -46,6 +46,7 @@ function check_file_exist() {
   fi
 }
 
+# generate real host file for pssh, according to the config "available_workers_num"
 function obtain_real_workers_file() {
   path="$(dirname -- "$1")"
   cat "$1" | sed '/^$/d' | head -n "$2" > "$path"/hosts_"$3".txt
