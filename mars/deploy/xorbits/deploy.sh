@@ -1,11 +1,25 @@
 #!/bin/bash
 
-set -ex
+if [ $# -lt 4 ]; then
+  echo "Usage: $0 commit_id hosts_file_path supervisor_ip available_workers_num run_locally[optional]"
+  exit 1
+fi
 
 commit_id=$1
 hosts_file_path=$2
 supervisor_ip=$3
 available_workers_num=$4
+
+run_locally="true"
+if [ $# -eq 5 ]; then
+  run_locally=$5
+fi
+
+if "$run_locally" -eq "true" ; then
+  set -ex
+else
+  set -e
+fi
 
 function check_prerequisite() {
   if ! command -v "$1"; then
