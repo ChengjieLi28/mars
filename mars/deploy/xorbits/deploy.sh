@@ -1,21 +1,127 @@
 #!/bin/bash
 
-if [ $# -lt 4 ]; then
-  echo "Usage: $0 commit_id hosts_file_path supervisor_ip available_workers_num run_locally[optional]"
-  exit 1
+function usage() {
+  echo "Usage: $0 [OPTIONS]
+  OPTIONS:
+    -c | --commit VALUE      commit id. Get it from pipeline. (required)
+    -h | --host-file VALUE   hosts file path used for pssh. (required)
+    -s | --supervisor VALUE  supervisor ip. (required)
+    -w | --workers-num VALUE the workers num that you want in mars cluster. (required)
+    -l | --local             whether this script runs locally. (default false)
+    -b | --build-only        whether just start a cluster or not (start a cluster and run tpch queries). (default false)
+    -f | --fold VALUE        tpch data fold. (required without -b option)
+    -q | --queries VALUE     tpch queries number. (required without -b option)
+    -e | --endpoint VALUE    endpoint for mars to connect to. (required without -b option)
+    -a | --arrow-dtype       whether to use arrow dtype to read parquet. (default false)"
+}
+
+ARGS="$(getopt -a -o c:h:s:w:lbf:q:e:a \
+       --long commit:,host-file:,supervisor:,workers-num:,local,build-only,fold:,queries:,endpoint:,arrow-dtype,help -- "$@")"
+
+[ $? -ne 0 ] && usage
+
+eval set -- "$ARGS"
+
+# default
+run_locally="false"
+build_only="false"
+use_arrow_dtype="false"
+
+while true
+do
+  case $1 in
+    -c|--commit)
+      commit_id=$2
+      shift
+      ;;
+    -h|--host-file)
+      hosts_file_path=$2
+      shift
+      ;;
+    -s|--supervisor)
+      supervisor_ip=$2
+      shift
+      ;;
+    -w|--workers-num)
+      available_workers_num=$2
+      shift
+      ;;
+    -l|--local)
+      run_locally="true"
+      ;;
+    -b|--build-only)
+      build_only="true"
+      ;;
+    -f|--fold)
+      data_fold=$2
+      shift
+      ;;
+    -q|--queries)
+      queries=$2
+      shift
+      ;;
+    -e|--endpoint)
+      endpoint=$2
+      shift
+      ;;
+    -a|--arrow-dtype)
+      use_arrow_dtype="true"
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      echo "Internal error!"
+      exit 1
+      ;;
+  esac
+shift
+done
+
+declare -A build_argument_map
+build_argument_map["-c | --commit"]=$commit_id
+build_argument_map["-h | --host-file"]=$hosts_file_path
+build_argument_map["-s | --supervisor"]=$supervisor_ip
+build_argument_map["-w | --workers-num"]=$available_workers_num
+
+declare -A tpch_argument_map
+tpch_argument_map["-f | --fold"]=$data_fold
+tpch_argument_map["-q | --queries"]=$queries
+tpch_argument_map["-e | --endpoint"]=$endpoint
+
+function check_arguments() {
+  for key in "${!build_argument_map[@]}"; do
+    [ ! "${build_argument_map[$key]}" ] && echo "Missing required argument \"$key\" !" && exit 1
+  done
+  if [ "$build_only" != "true" ]; then
+    for k in "${!tpch_argument_map[@]}"; do
+      [ ! "${tpch_argument_map[$k]}" ] && echo "Missing required argument \"$k\" when \"-b | --build\" is not set." && exit 1
+    done
+  fi
+}
+
+check_arguments
+
+echo "Arguments:"
+echo "commit id: $commit_id"
+echo "hosts file path: $hosts_file_path"
+echo "supervisor: $supervisor_ip"
+echo "workers num: $available_workers_num"
+echo "run locally: $run_locally"
+echo "build only: $build_only"
+if [ "$build_only" != "true" ]; then
+  echo "data fold: $data_fold"
+  echo "queries: $queries"
+  echo "endpoint: $endpoint"
+  echo "use arrow dtype: $use_arrow_dtype"
 fi
 
-commit_id=$1
-hosts_file_path=$2
-supervisor_ip=$3
-available_workers_num=$4
-
-run_locally="true"
-if [ $# -eq 5 ]; then
-  run_locally=$5
-fi
-
-if "$run_locally" -eq "true" ; then
+if [ "$run_locally" == "true" ] ; then
   set -ex
 else
   set -e
@@ -87,3 +193,12 @@ sudo docker exec -d "$container_name" mars-supervisor -H "$(hostname -i)" -p 800
 pssh -h "$hosts_file_path" -t 0 -i sudo docker pull "$commit_image"
 pssh -h "$hosts_file_path" -i sudo docker run --privileged -d --network host --name "$container_name" "$commit_image" tail -f /dev/null
 pssh -h "$hosts_file_path" -i sudo docker exec -d "$container_name" mars-worker -H '$(hostname -i)' -p 8003 -s "$supervisor_ip":8002
+
+# run tpch query
+if [ "$build_only" != "true" ] ; then
+  sudo docker exec "$container_name" python /opt/mars/benchmarks/tpch/run_queries.py \
+                                            --folder "$data_fold" \
+                                            --query "$queries" \
+                                            --endpoint "$endpoint" \
+                                            --use-arrow-dtype "$use_arrow_dtype"
+fi
