@@ -9,14 +9,14 @@ function usage() {
     -w | --workers-num VALUE the workers num that you want in mars cluster. (required)
     -l | --local             whether this script runs locally. (default false)
     -b | --build-only        whether just start a cluster or not (start a cluster and run tpch queries). (default false)
-    -f | --fold VALUE        tpch data fold. (required without -b option)
+    -f | --folder VALUE      tpch data fold. (required without -b option)
     -q | --queries VALUE     tpch queries number. (required without -b option)
     -e | --endpoint VALUE    endpoint for mars to connect to. (required without -b option)
     -a | --arrow-dtype       whether to use arrow dtype to read parquet. (default false)"
 }
 
 ARGS="$(getopt -a -o c:h:s:w:lbf:q:e:a \
-       --long commit:,host-file:,supervisor:,workers-num:,local,build-only,fold:,queries:,endpoint:,arrow-dtype,help -- "$@")"
+       --long commit:,host-file:,supervisor:,workers-num:,local,build-only,folder:,queries:,endpoint:,arrow-dtype,help -- "$@")"
 
 [ $? -ne 0 ] && usage
 
@@ -52,8 +52,8 @@ do
     -b|--build-only)
       build_only="true"
       ;;
-    -f|--fold)
-      data_fold=$2
+    -f|--folder)
+      data_folder=$2
       shift
       ;;
     -q|--queries)
@@ -90,7 +90,7 @@ build_argument_map["-s | --supervisor"]=$supervisor_ip
 build_argument_map["-w | --workers-num"]=$available_workers_num
 
 declare -A tpch_argument_map
-tpch_argument_map["-f | --fold"]=$data_fold
+tpch_argument_map["-f | --fold"]=$data_folder
 tpch_argument_map["-q | --queries"]=$queries
 tpch_argument_map["-e | --endpoint"]=$endpoint
 
@@ -115,7 +115,7 @@ echo "workers num: $available_workers_num"
 echo "run locally: $run_locally"
 echo "build only: $build_only"
 if [ "$build_only" != "true" ]; then
-  echo "data fold: $data_fold"
+  echo "data fold: $data_folder"
   echo "queries: $queries"
   echo "endpoint: $endpoint"
   echo "use arrow dtype: $use_arrow_dtype"
@@ -197,7 +197,7 @@ pssh -h "$hosts_file_path" -i sudo docker exec -d "$container_name" mars-worker 
 # run tpch query
 if [ "$build_only" != "true" ] ; then
   sudo docker exec "$container_name" python /opt/mars/benchmarks/tpch/run_queries.py \
-                                            --folder "$data_fold" \
+                                            --folder "$data_folder" \
                                             --query "$queries" \
                                             --endpoint "$endpoint" \
                                             --use-arrow-dtype "$use_arrow_dtype"
