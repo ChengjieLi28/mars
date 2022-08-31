@@ -124,7 +124,7 @@ function stop_all_docker_containers() {
   fi
   # rm all the names
   if [ "$(sudo docker ps -a | wc -l)" -gt 1 ]; then
-    sudo docker rm "$(sudo docker ps -a | tail -n +2  | awk '{print $NF}' | xargs)"
+    sudo docker rm $(sudo docker ps -a | tail -n +2  | awk '{print $NF}' | xargs)
   fi
 }
 
