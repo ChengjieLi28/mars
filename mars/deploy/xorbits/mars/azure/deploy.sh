@@ -120,7 +120,7 @@ function obtain_real_workers_file() {
 function stop_all_docker_containers() {
   # stop all running containers
   if [ "$(sudo docker ps | wc -l)" -gt 1 ]; then
-    sudo docker stop "$(sudo docker ps -q)"
+    sudo docker stop $(sudo docker ps -q)
   fi
   # rm all the names
   if [ "$(sudo docker ps -a | wc -l)" -gt 1 ]; then
