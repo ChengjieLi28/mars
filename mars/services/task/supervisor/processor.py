@@ -295,8 +295,21 @@ class TaskProcessor:
                 original_chunk.params = r.meta
 
         for tileable, tiled_tileable in tile_context.items():
+            # for chunk in tiled_tileable.chunks:
+            #     real_params = chunk.extra_params.get('real_params', None)
+            #     if real_params:
+            #         print('Here!')
+            #
+            # for chunk in tileable.chunks:
+            #     real_params = chunk.extra_params.get('real_params', None)
+            #     if real_params:
+            #         print('Here!')
+
             tiled_tileable.refresh_params()
             tileable.params = tiled_tileable.params
+            # real_params = tiled_tileable.extra_params.get('real_params', None)
+            # if real_params:
+            #     tileable
 
     @classmethod
     def _update_result_meta(

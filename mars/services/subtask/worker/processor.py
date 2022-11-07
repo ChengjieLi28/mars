@@ -378,6 +378,7 @@ class SubtaskProcessor:
             # for worker, if chunk in update_meta_chunks
             # save meta including dtypes_value etc, otherwise,
             # save basic meta only
+            # TODO
             if result_chunk in update_meta_chunks:
                 set_worker_chunk_metas.append(
                     self._worker_meta_api.set_chunk_meta.delay(

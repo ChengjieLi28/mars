@@ -13,7 +13,14 @@
 # limitations under the License.
 
 from typing import Any, Dict, List, Iterator, Tuple
+
+import pandas as pd
+
 from ...core import ChunkGraph
+from ...dataframe.core import (
+    DataFrameChunkData,
+    SeriesChunkData
+)
 from ...core.operand import (
     Fetch,
     FetchShuffle,
@@ -65,7 +72,14 @@ def iter_output_data(
             data = context[key]
             # update meta
             if not isinstance(data, tuple):
-                result_chunk.params = result_chunk.get_params_from_data(data)
+                data_params = _get_params_from_data(data)
+                try:
+                    result_chunk.params = data_params
+                except:
+                    # TODO
+                    result_chunk.extra_params.update({'real_params': data_params})
+                    # raise
+                    # pass
             # check key after update meta
             if key in data_keys:
                 continue
@@ -81,3 +95,13 @@ def iter_output_data(
                 data = context[key]
                 yield key, data, True
                 data_keys.add(key)
+
+
+def _get_params_from_data(data: Any) -> Dict[str, Any]:
+    # TODO
+    if isinstance(data, pd.DataFrame):
+        return DataFrameChunkData.get_params_from_data(data)
+    elif isinstance(data, pd.Series):
+        return SeriesChunkData.get_params_from_data(data)
+    else:
+        raise NotImplementedError

@@ -397,7 +397,7 @@ class ApplyOperand(
         if index_value is None:
             index_value = parse_index(None, (df.key, df.index_value.key))
         for arg, desc in zip((self.output_types, dtypes), ("output_types", "dtypes")):
-            if arg is None:
+            if arg is None or (desc == 'output_types' and any(a is None for a in arg)):
                 raise TypeError(
                     f"Cannot determine {desc} by calculating with enumerate data, "
                     "please specify it as arguments"
