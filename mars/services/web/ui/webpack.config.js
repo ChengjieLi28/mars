@@ -16,36 +16,8 @@ module.exports = {
       {
         test: /\.js$/,
         include: path.resolve(__dirname, 'src'),
-        use: [
-          'thread-loader',
-          'babel-loader'
-        ],
+        loader: 'babel-loader',
       },
-      {
-        test: /\.(woff|woff2)$/,
-        use: {
-          loader: 'file-loader',
-          options: {
-            name: '[name].[ext]',
-            outputPath: 'webfonts/'
-          }
-        },
-      },
-      {
-        test: /\.(sass|less|css)$/,
-        use: ['style-loader', 'css-loader', 'less-loader']
-      }
     ]
   },
-  plugins: [
-    {
-       apply: (compiler) => {
-         compiler.hooks.done.tap('DonePlugin', (stats) => {
-           setTimeout(() => {
-             process.exit(0)
-           })
-         });
-       }
-    }
-  ]
 };
