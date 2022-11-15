@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
   entry: './src/App.js',
-  mode: process.env.NODE_ENV || "development",
+  mode: "production",
   resolve: {
     extensions: ['*', '.js', '.jsx'],
   },
