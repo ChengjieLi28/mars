@@ -115,6 +115,7 @@ class LifecycleTrackerActor(mo.Actor):
             self._get_remove_chunk_keys, chunk_keys, counts=counts
         )
         # make _remove_chunks release actor lock so that multiple `decref_chunks` can run concurrently.
+        # TODO
         yield self._remove_chunks(to_remove_chunk_keys)
 
     async def _remove_chunks(self, to_remove_chunk_keys: List[str]):

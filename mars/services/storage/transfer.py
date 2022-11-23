@@ -15,7 +15,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Any, Optional, Tuple, Union, ByteString
 
 from ... import oscar as mo
 from ...lib.aio import alru_cache
@@ -28,6 +28,33 @@ DEFAULT_TRANSFER_BLOCK_SIZE = 4 * 1024**2
 
 
 logger = logging.getLogger(__name__)
+
+
+class BufferedSender:
+    def __init__(self, session_id: str, receiver_ref: mo.ActorRefType["ReceiverManagerActor"], block_size: Optional[int] = None):
+        self._buffers = []
+        self._send_keys = []
+        self._eof_marks = []
+        self._session_id = session_id
+        self._receiver_ref = receiver_ref
+        self._block_size = block_size or DEFAULT_TRANSFER_BLOCK_SIZE
+
+    async def flush(self):
+        if self._buffers:
+            await self._receiver_ref.receive_part_data(
+                self._buffers, self._session_id, self._send_keys, self._eof_marks
+            )
+
+        self._buffers = []
+        self._send_keys = []
+        self._eof_marks = []
+
+    async def send(self, buffer, eof_mark, key):
+        self._eof_marks.append(eof_mark)
+        self._buffers.append(buffer)
+        self._send_keys.append(key)
+        if sum(len(b) for b in self._buffers) >= self._block_size:
+            await self.flush()
 
 
 class SenderManagerActor(mo.StatelessActor):
@@ -60,38 +87,62 @@ class SenderManagerActor(mo.StatelessActor):
             address=address, uid=ReceiverManagerActor.gen_uid(band_name)
         )
 
+    async def send_memory_data(
+        self,
+        session_id: str,
+        data_keys: List[str],
+        datas: List[List[ByteString]],
+        data_sizes: List[int],
+        address: str,
+        level: StorageLevel,
+        band_name: str = "numa-0"
+    ):
+        receiver_ref: mo.ActorRefType[
+            ReceiverManagerActor
+        ] = await self.get_receiver_ref(address, band_name)
+        is_transferring_list = await receiver_ref.open_writers(
+            session_id, data_keys, data_sizes, level, multi=True
+        )
+
+        to_send_keys = []
+        to_wait_keys = []
+        to_send_datas = []
+        for i, (data_key, is_transferring) in enumerate(zip(data_keys, is_transferring_list)):
+            if is_transferring:
+                to_wait_keys.append(data_key)
+            else:
+                to_send_keys.append(data_key)
+                to_send_datas.append(datas[i])
+
+        if to_send_keys:
+            await self._send_memory_data(
+                receiver_ref, session_id, to_send_keys, to_send_datas
+            )
+        if to_wait_keys:
+            await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
+
+    @staticmethod
+    async def _send_memory_data(
+        receiver_ref: mo.ActorRefType["ReceiverManagerActor"],
+        session_id: str,
+        data_keys: List[str],
+        datas: List[Any],
+    ):
+        sender = BufferedSender(session_id, receiver_ref)
+        for i, (data_key, data) in enumerate(zip(data_keys, datas)):
+            for j, d in enumerate(data):
+                is_eof = (i == len(data_keys) - 1) and (j == len(data) - 1)
+                await sender.send(d, is_eof, data_key)
+        await sender.flush()
+
     async def _send_data(
         self,
         receiver_ref: mo.ActorRefType["ReceiverManagerActor"],
         session_id: str,
         data_keys: List[str],
-        level: StorageLevel,
         block_size: int,
     ):
-        class BufferedSender:
-            def __init__(self):
-                self._buffers = []
-                self._send_keys = []
-                self._eof_marks = []
-
-            async def flush(self):
-                if self._buffers:
-                    await receiver_ref.receive_part_data(
-                        self._buffers, session_id, self._send_keys, self._eof_marks
-                    )
-
-                self._buffers = []
-                self._send_keys = []
-                self._eof_marks = []
-
-            async def send(self, buffer, eof_mark, key):
-                self._eof_marks.append(eof_mark)
-                self._buffers.append(buffer)
-                self._send_keys.append(key)
-                if sum(len(b) for b in self._buffers) >= block_size:
-                    await self.flush()
-
-        sender = BufferedSender()
+        sender = BufferedSender(session_id, receiver_ref, block_size=block_size)
         open_reader_tasks = []
         for data_key in data_keys:
             open_reader_tasks.append(
@@ -175,7 +226,7 @@ class SenderManagerActor(mo.StatelessActor):
 
         if to_send_keys:
             await self._send_data(
-                receiver_ref, session_id, to_send_keys, level, block_size
+                receiver_ref, session_id, to_send_keys, block_size
             )
         if to_wait_keys:
             await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
@@ -204,6 +255,7 @@ class WritingInfo:
     level: StorageLevel
     event: asyncio.Event
     ref_counts: int
+    data_keys: List
 
 
 class ReceiverManagerActor(mo.StatelessActor):
@@ -232,6 +284,34 @@ class ReceiverManagerActor(mo.StatelessActor):
         if self._writing_infos[(session_id, data_key)].ref_counts == 0:
             del self._writing_infos[(session_id, data_key)]
 
+    async def create_unified_writer(
+        self,
+        session_id: str,
+        data_keys: List[Tuple],
+        data_sizes: List[int],
+        level: StorageLevel,
+    ):
+        being_processed = []
+        tasks = []
+        for data_key, data_size in zip(data_keys, data_sizes):
+            if (session_id, data_key) not in self._writing_infos:
+                being_processed.append(False)
+                tasks.append((data_key, data_size))
+            else:
+                being_processed.append(True)
+                self._writing_infos[(session_id, data_key)].ref_counts += 1
+
+        if tasks:
+            writer = await self._storage_handler.open_unified_writer(
+                session_id, data_keys, data_sizes, level
+            )
+            keys = [pair[0] for pair in tasks]
+            for data_key, data_size in tasks:
+                self._writing_infos[(session_id, data_key)] = WritingInfo(
+                    writer, data_size, level, asyncio.Event(), 1, keys
+                )
+        return being_processed
+
     async def create_writers(
         self,
         session_id: str,
@@ -258,22 +338,28 @@ class ReceiverManagerActor(mo.StatelessActor):
             )
             for data_key, writer in zip(tasks, writers):
                 self._writing_infos[(session_id, data_key)] = WritingInfo(
-                    writer, data_key_to_size[data_key], level, asyncio.Event(), 1
+                    writer, data_key_to_size[data_key], level, asyncio.Event(), 1, [data_key]
                 )
         return being_processed
 
     async def open_writers(
         self,
         session_id: str,
-        data_keys: List[str],
+        data_keys: List[Union[str, Tuple]],
         data_sizes: List[int],
         level: StorageLevel,
+        multi: bool = False
     ):
         async with self._lock:
             await self._storage_handler.request_quota_with_spill(level, sum(data_sizes))
-            future = asyncio.create_task(
-                self.create_writers(session_id, data_keys, data_sizes, level)
-            )
+            if multi:
+                future = asyncio.create_task(
+                    self.create_unified_writer(session_id, data_keys, data_sizes, level)
+                )
+            else:
+                future = asyncio.create_task(
+                    self.create_writers(session_id, data_keys, data_sizes, level)
+                )
             try:
                 return await future
             except asyncio.CancelledError:
@@ -282,7 +368,7 @@ class ReceiverManagerActor(mo.StatelessActor):
                 raise
 
     async def do_write(
-        self, data: list, session_id: str, data_keys: List[str], eof_marks: List[bool]
+        self, data: List[ByteString], session_id: str, data_keys: List[Union[str, Tuple]], eof_marks: List[bool]
     ):
         # close may be a high-cost operation, use create_task
         close_tasks = []
@@ -293,7 +379,7 @@ class ReceiverManagerActor(mo.StatelessActor):
                 await writer.write(data)
             if is_eof:
                 close_tasks.append(writer.close())
-                finished_keys.append(data_key)
+                finished_keys.extend(self._writing_infos[(session_id, data_key)].data_keys)
         await asyncio.gather(*close_tasks)
         async with self._lock:
             for data_key in finished_keys:

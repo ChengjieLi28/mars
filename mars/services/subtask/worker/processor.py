@@ -17,9 +17,10 @@ import logging
 import sys
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, List, Optional, Set, Type, Tuple
 
 from .... import oscar as mo
+from ....lib.aio import alru_cache
 from ....core import ChunkGraph, OperandType, enter_mode, ExecutionError
 from ....core.context import get_context, set_context
 from ....core.operand import (
@@ -29,6 +30,8 @@ from ....core.operand import (
 )
 from ....metrics import Metrics
 from ....optimization.physical import optimize
+from ....serialization import AioSerializer
+from ....storage import StorageLevel
 from ....typing import BandType, ChunkType
 from ....utils import get_chunk_key_to_data_keys
 from ...context import ThreadedServiceContext
@@ -294,9 +297,16 @@ class SubtaskProcessor:
     async def _store_data(self, chunk_graph: ChunkGraph):
         # store data into storage
         data_key_to_puts = {}
+        shuffle_key_to_data = {}
         for key, data, _ in iter_output_data(chunk_graph, self._processor_context):
-            put = self._storage_api.put.delay(key, data)
-            data_key_to_puts[key] = put
+            if isinstance(key, tuple):
+                shuffle_key_to_data[key] = data
+                # print(f'Key: {key}')
+                # print(f'{data}')
+                # print()
+            else:
+                put = self._storage_api.put.delay(key, data)
+                data_key_to_puts[key] = put
 
         stored_keys = list(data_key_to_puts.keys())
         puts = data_key_to_puts.values()
@@ -337,6 +347,9 @@ class SubtaskProcessor:
                 self.result.status = SubtaskStatus.cancelled
                 raise
 
+        if shuffle_key_to_data:
+            await self._send_map_data_to_reducer(shuffle_key_to_data)
+
         # clear data
         self._processor_context = ProcessorContext()
         return (
@@ -344,6 +357,83 @@ class SubtaskProcessor:
             data_key_to_store_size,
             data_key_to_memory_size,
             data_key_to_object_id,
+        )
+
+    @classmethod
+    @alru_cache(cache_exceptions=False)
+    async def _gen_reducer_index_to_bands(
+        cls, session_id: str, supervisor_address: str, task_id: str, map_reduce_id: int
+    ) -> Dict[Tuple[int], BandType]:
+        task_api = await TaskAPI.create(session_id, supervisor_address)
+        map_reduce_info = await task_api.get_map_reduce_info(task_id, map_reduce_id)
+        assert len(map_reduce_info.reducer_indexes) == len(
+            map_reduce_info.reducer_bands
+        )
+        return {
+            reducer_index: band
+            for reducer_index, band in zip(
+                map_reduce_info.reducer_indexes, map_reduce_info.reducer_bands
+            )
+        }
+
+    async def _send_map_data_to_reducer(
+        self,
+        shuffle_key_to_data: Dict[Tuple[int], Any]
+    ):
+        band_to_mapper_key = defaultdict(list)
+        for result_chunk in self._chunk_graph.result_chunks:
+            map_reduce_id = getattr(result_chunk.op, "extra_params", dict()).get(
+                "analyzer_map_reduce_id"
+            )
+            if map_reduce_id is None:
+                continue
+            reducer_index_to_bands = await self._gen_reducer_index_to_bands(
+                self._session_id,
+                self._supervisor_address,
+                self.subtask.task_id,
+                map_reduce_id,
+            )
+            for reducer_index, band in reducer_index_to_bands.items():
+                # mapper key is a tuple
+                band_to_mapper_key[(result_chunk.key, band)].append(
+                    (result_chunk.key, reducer_index)
+                )
+
+        push_tasks = []
+        key_and_bands = []
+        for main_key_and_band, mapper_keys in band_to_mapper_key.items():
+            key_and_bands.append(main_key_and_band)
+            main_key_data = [shuffle_key_to_data[mk] for mk in mapper_keys]
+            # print(f'Key: {mapper_keys}')
+            # for d in main_key_data:
+            #     print(d)
+            # TODO storage api to send data to reducer
+            address = main_key_and_band[1][0]
+            band = main_key_and_band[1][1]
+            # print(address, band)
+            # print()
+            push_tasks.append(
+                self._push_data_to_reducer(
+                    mapper_keys, main_key_data, address, band
+                )
+            )
+        await asyncio.gather(*push_tasks)
+
+    async def _push_data_to_reducer(
+        self,
+        data_keys: List[str],
+        objects: List,
+        address: str,
+        band_name: str,
+        level: StorageLevel = StorageLevel.MEMORY
+    ):
+        serialization_tasks = [
+            asyncio.create_task(AioSerializer(obj).run()) for obj in objects
+        ]
+        buffer_list = await asyncio.gather(*serialization_tasks)
+        data_sizes = [sum(len(b) for b in buf) for buf in buffer_list]
+        await self._storage_api.push(
+            data_keys, buffer_list, data_sizes, address, level, band_name
         )
 
     async def _store_meta(

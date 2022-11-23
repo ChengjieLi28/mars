@@ -26,6 +26,7 @@ from ..core import (
     WrappedStorageFileObject,
 )
 from ..handler import StorageHandlerActor
+from ..transfer import SenderManagerActor
 from .core import AbstractStorageAPI
 
 _is_windows = sys.platform.lower().startswith("win")
@@ -35,6 +36,7 @@ APIType = TypeVar("APIType", bound="StorageAPI")
 class StorageAPI(AbstractStorageAPI):
     _storage_handler_ref: mo.ActorRefType[StorageHandlerActor]
     _data_manager_ref: mo.ActorRefType[DataManagerActor]
+    _send_manager_ref: mo.ActorRefType[SenderManagerActor]
 
     def __init__(self, address: str, session_id: str, band_name: str):
         self._address = address
@@ -47,6 +49,9 @@ class StorageAPI(AbstractStorageAPI):
         )
         self._data_manager_ref = await mo.actor_ref(
             self._address, DataManagerActor.default_uid()
+        )
+        self._send_manager_ref = await mo.actor_ref(
+            self._address, SenderManagerActor.gen_uid(self._band_name)
         )
 
     @classmethod
@@ -82,6 +87,20 @@ class StorageAPI(AbstractStorageAPI):
         api = StorageAPI(address, session_id, band_name)
         await api._init()
         return api
+
+    async def push(
+        self,
+        data_keys: List[str],
+        datas: List[Any],
+        data_sizes: List[int],
+        address: str,
+        level: StorageLevel,
+        band_name: str = "numa-0",
+    ):
+        await self._send_manager_ref.send_memory_data(
+            self._session_id, data_keys, datas, data_sizes,
+            address, level, band_name
+        )
 
     @mo.extensible
     async def get(

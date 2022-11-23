@@ -15,9 +15,10 @@
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Tuple
 
 from ... import oscar as mo
+from ...serialization import AioDeserializer
 from ...storage import StorageLevel, get_storage_backend
 from ...storage.core import StorageFileObject
 from ...typing import BandType
@@ -30,6 +31,7 @@ from .core import (
     DataInfo,
     build_data_info,
     WrappedStorageFileObject,
+    UnifiedWrappedStorageFileObject
 )
 from .errors import DataNotExist, NoDataToSpill
 
@@ -83,6 +85,26 @@ class StorageHandlerActor(mo.Actor):
                     clients[level] = client
 
     async def _get_data(self, data_info, conditions):
+        print(f'Enter _get_data {data_info}')
+        if data_info.offset is not None:
+            f = await self._clients[data_info.level].open_reader(data_info.object_id)
+            # async with self._clients[data_info.level].open_reader(data_info.object_id) as :
+            await f.seek(data_info.offset)
+            deserializer = AioDeserializer(f)
+            res = yield deserializer.run()
+            # print(f'Read: {data_info.object_id} -> Offset: {data_info.offset}')
+            # print(res)
+            # print()
+            f.close()
+
+            if conditions is not None:
+                try:
+                    sliced_value = res.iloc[tuple(conditions)]
+                except AttributeError:
+                    sliced_value = res[tuple(conditions)]
+                res = sliced_value
+            raise mo.Return(res)
+
         if conditions is None:
             res = yield self._clients[data_info.level].get(data_info.object_id)
         else:
@@ -111,6 +133,7 @@ class StorageHandlerActor(mo.Actor):
             data_info = await self._data_manager_ref.get_data_info(
                 session_id, data_key, self._band_name
             )
+            # print(f'Data Info: {data_info}')
             data = yield self._get_data(data_info, conditions)
             raise mo.Return(data)
         except DataNotExist:
@@ -226,7 +249,7 @@ class StorageHandlerActor(mo.Actor):
         await self.notify_spillable_space(level)
         return data_infos
 
-    def _get_data_infos_arg(self, session_id: str, data_key: str, error: str = "raise"):
+    def _get_data_infos_arg(self, session_id: str, data_key: Union[str, Tuple], error: str = "raise"):
         infos = self._data_manager_ref.get_data_infos.delay(
             session_id, data_key, self._band_name, error
         )
@@ -283,7 +306,7 @@ class StorageHandlerActor(mo.Actor):
 
         delete_infos = []
         to_removes = []
-        level_sizes = defaultdict(lambda: 0)
+        level_sizes: Dict[StorageLevel, Dict[object, List[int, bool]]] = defaultdict(lambda: defaultdict(lambda: [0, False]))
         for all_infos, data_key in zip(infos_list, data_keys):
             if not all_infos:
                 # data not exist and error == 'ignore'
@@ -297,21 +320,28 @@ class StorageHandlerActor(mo.Actor):
                     level = info.level
                     delete_infos.append(
                         self._data_manager_ref.delete_data_info.delay(
-                            session_id, key, level, info.band
+                            session_id, key, level, info.band, info.offset, info.object_id
                         )
                     )
                     to_removes.append((level, info.object_id))
-                    level_sizes[level] += info.store_size
+                    # level_sizes[level] += info.store_size
+                    level_sizes[level][info.object_id][0] += info.store_size
 
         if not delete_infos:
             # no data to remove
             return
 
-        await self._data_manager_ref.delete_data_info.batch(*delete_infos)
+        remain_data_keys_for_object_id = await self._data_manager_ref.delete_data_info.batch(*delete_infos)
+        removes = []
+        for remain, (level, object_id) in zip(remain_data_keys_for_object_id, to_removes):
+            if remain is None or not remain:
+                removes.append((level, object_id))
+                level_sizes[level][object_id][1] = True
         await asyncio.gather(
-            *[self._clients[level].delete(object_id) for level, object_id in to_removes]
+            *[self._clients[level].delete(object_id) for level, object_id in removes]
         )
-        for level, size in level_sizes.items():
+        for level, size_info in level_sizes.items():
+            size = sum([info[0] for _, info in level_sizes[level].items() if info[1]])
             await self._quota_refs[level].release_quota(size)
 
     @mo.extensible
@@ -357,6 +387,27 @@ class StorageHandlerActor(mo.Actor):
             size,
             session_id,
             data_key,
+            self._data_manager_ref,
+            self._clients[level],
+        )
+
+    async def open_unified_writer(
+        self,
+        session_id: str,
+        data_keys: List[Tuple],
+        sizes: List[int],
+        level: StorageLevel,
+        request_quota=True,
+    ) -> WrappedStorageFileObject:
+        if request_quota:
+            await self.request_quota_with_spill(level, sum(sizes))
+        writer = await self._clients[level].open_writer(sum(sizes))
+        return UnifiedWrappedStorageFileObject(
+            writer,
+            level,
+            sizes,
+            session_id,
+            data_keys,
             self._data_manager_ref,
             self._clients[level],
         )
