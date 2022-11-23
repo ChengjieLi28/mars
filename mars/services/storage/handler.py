@@ -469,7 +469,6 @@ class StorageHandlerActor(mo.Actor):
         )
         get_data_infos = []
         for data_key in data_keys:
-            assert not isinstance(data_key, tuple)
             get_data_infos.append(
                 remote_manager_ref.get_data_info.delay(session_id, data_key, error)
             )
@@ -505,6 +504,9 @@ class StorageHandlerActor(mo.Actor):
         error: str,
     ):
         from .transfer import SenderManagerActor
+
+        for data_key in data_keys:
+            assert not isinstance(data_key, tuple)
 
         logger.debug("Begin to fetch %s from band %s", data_keys, remote_band)
         sender_ref: mo.ActorRefType[SenderManagerActor] = await mo.actor_ref(
