@@ -118,8 +118,8 @@ class SenderManagerActor(mo.StatelessActor):
             await self._send_memory_data(
                 receiver_ref, session_id, to_send_keys, to_send_datas
             )
-        if to_wait_keys:
-            await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
+        # if to_wait_keys:
+        #     await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
 
     @staticmethod
     async def _send_memory_data(
