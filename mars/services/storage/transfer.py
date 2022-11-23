@@ -114,14 +114,15 @@ class SenderManagerActor(mo.StatelessActor):
                 to_send_keys.append(data_key)
                 to_send_datas.append(datas[i])
 
+        logger.debug(f'Send memory data keys: {to_send_keys}, Len: {len(to_send_keys)}')
         if to_send_keys:
             await self._send_memory_data(
                 receiver_ref, session_id, to_send_keys, to_send_datas
             )
+        logger.debug(f'Waiting {to_wait_keys}, Len: {len(to_wait_keys)}')
         if to_wait_keys:
-            print(f'Waiting {to_wait_keys}')
             await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
-            print(f'Done Waiting {to_wait_keys}')
+            logger.debug(f'Done Waiting {to_wait_keys}')
 
     @staticmethod
     async def _send_memory_data(
@@ -313,7 +314,6 @@ class ReceiverManagerActor(mo.StatelessActor):
                 self._writing_infos[(session_id, data_key)] = WritingInfo(
                     writer, data_size, level, asyncio.Event(), 1, keys
                 )
-                logger.debug(f'Data key {data_key} WriteInfo init!')
         return being_processed
 
     async def create_writers(
@@ -390,7 +390,6 @@ class ReceiverManagerActor(mo.StatelessActor):
                 event = self._writing_infos[(session_id, data_key)].event
                 event.set()
                 self._decref_writing_key(session_id, data_key)
-                logger.debug(f'Data key {data_key} event set successfully!')
 
     async def receive_part_data(
         self, data: list, session_id: str, data_keys: List[str], eof_marks: List[bool]

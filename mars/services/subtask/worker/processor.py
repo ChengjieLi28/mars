@@ -386,6 +386,7 @@ class SubtaskProcessor:
                 "analyzer_map_reduce_id"
             )
             if map_reduce_id is None:
+                logger.warning(f'No analyzer_map_reduce_id for chunk: {result_chunk.key}')
                 continue
             reducer_index_to_bands = await self._gen_reducer_index_to_bands(
                 self._session_id,
@@ -412,6 +413,7 @@ class SubtaskProcessor:
             band = main_key_and_band[1][1]
             # print(address, band)
             # print()
+            logger.debug(f'Push Mapper Keys: {mapper_keys} to address {address}, band {band}, Len: {len(mapper_keys)}')
             push_tasks.append(
                 self._push_data_to_reducer(
                     mapper_keys, main_key_data, address, band
