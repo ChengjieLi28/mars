@@ -85,7 +85,7 @@ class StorageHandlerActor(mo.Actor):
                     clients[level] = client
 
     async def _get_data(self, data_info, conditions):
-        print(f'Enter _get_data {data_info}')
+        # print(f'Enter _get_data {data_info}')
         if data_info.offset is not None:
             f = await self._clients[data_info.level].open_reader(data_info.object_id)
             # async with self._clients[data_info.level].open_reader(data_info.object_id) as :
@@ -95,7 +95,7 @@ class StorageHandlerActor(mo.Actor):
             # print(f'Read: {data_info.object_id} -> Offset: {data_info.offset}')
             # print(res)
             # print()
-            f.close()
+            await f.close()
 
             if conditions is not None:
                 try:
@@ -469,6 +469,7 @@ class StorageHandlerActor(mo.Actor):
         )
         get_data_infos = []
         for data_key in data_keys:
+            assert not isinstance(data_key, tuple)
             get_data_infos.append(
                 remote_manager_ref.get_data_info.delay(session_id, data_key, error)
             )

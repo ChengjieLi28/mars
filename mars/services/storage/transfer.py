@@ -118,8 +118,8 @@ class SenderManagerActor(mo.StatelessActor):
             await self._send_memory_data(
                 receiver_ref, session_id, to_send_keys, to_send_datas
             )
-        # if to_wait_keys:
-        #     await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
+        if to_wait_keys:
+            await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
 
     @staticmethod
     async def _send_memory_data(
@@ -302,14 +302,16 @@ class ReceiverManagerActor(mo.StatelessActor):
                 self._writing_infos[(session_id, data_key)].ref_counts += 1
 
         if tasks:
-            writer = await self._storage_handler.open_unified_writer(
-                session_id, data_keys, data_sizes, level
-            )
             keys = [pair[0] for pair in tasks]
+            sizes = [pair[1] for pair in tasks]
+            writer = await self._storage_handler.open_unified_writer(
+                session_id, keys, sizes, level
+            )
             for data_key, data_size in tasks:
                 self._writing_infos[(session_id, data_key)] = WritingInfo(
                     writer, data_size, level, asyncio.Event(), 1, keys
                 )
+                logger.debug(f'Data key {data_key} WriteInfo init!')
         return being_processed
 
     async def create_writers(
@@ -386,6 +388,7 @@ class ReceiverManagerActor(mo.StatelessActor):
                 event = self._writing_infos[(session_id, data_key)].event
                 event.set()
                 self._decref_writing_key(session_id, data_key)
+                logger.debug(f'Data key {data_key} event set successfully!')
 
     async def receive_part_data(
         self, data: list, session_id: str, data_keys: List[str], eof_marks: List[bool]

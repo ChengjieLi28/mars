@@ -130,7 +130,7 @@ class UnifiedWrappedStorageFileObject(WrappedStorageFileObject):
             object_info = await self._storage_handler.object_info(self._object_id)
             offset = 0
             for data_key, size in zip(self._data_keys, self._sizes):
-                print(f'{self._object_id} -> {data_key}, Size: {size}, Offset: {offset}')
+                # print(f'{self._object_id} -> {data_key}, Size: {size}, Offset: {offset}')
                 data_info = build_data_info(object_info, self._level, size, offset=offset)
                 offset = offset + size
                 await self._data_manager.put_data_info(
