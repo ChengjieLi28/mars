@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+os.environ['DEBUG_OSCAR'] = '1'
+
 from typing import TypeVar, Union
 
 # import aio to ensure patch enabled for Python 3.6
