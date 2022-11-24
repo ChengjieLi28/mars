@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import sys
 from typing import Any, List, Type, TypeVar
 
@@ -32,6 +32,7 @@ from .core import AbstractStorageAPI
 _is_windows = sys.platform.lower().startswith("win")
 APIType = TypeVar("APIType", bound="StorageAPI")
 
+logger = logging.getLogger(__name__)
 
 class StorageAPI(AbstractStorageAPI):
     _storage_handler_ref: mo.ActorRefType[StorageHandlerActor]
@@ -97,6 +98,7 @@ class StorageAPI(AbstractStorageAPI):
         level: StorageLevel,
         band_name: str = "numa-0",
     ):
+        logger.debug(f'Before push {data_keys[0]}, len: {data_keys}')
         await self._send_manager_ref.send_memory_data(
             self._session_id, data_keys, datas, data_sizes,
             address, level, band_name

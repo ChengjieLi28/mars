@@ -103,6 +103,7 @@ class SenderManagerActor(mo.StatelessActor):
         is_transferring_list = await receiver_ref.open_writers(
             session_id, data_keys, data_sizes, level, multi=True
         )
+        logger.debug(f'Init writer for key {data_keys[0]}, len: {len(is_transferring_list)}')
 
         to_send_keys = []
         to_wait_keys = []

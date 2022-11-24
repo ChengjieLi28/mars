@@ -413,7 +413,7 @@ class SubtaskProcessor:
             band = main_key_and_band[1][1]
             # print(address, band)
             # print()
-            logger.debug(f'Push Mapper Keys: {mapper_keys} to address {address}, band {band}, Len: {len(mapper_keys)}')
+            logger.debug(f'Push Mapper Keys: {mapper_keys} to address {address}, band {band}, Len: {len(mapper_keys)}, Subtask id: {self.subtask.subtask_id}')
             push_tasks.append(
                 self._push_data_to_reducer(
                     mapper_keys, main_key_data, address, band
@@ -429,10 +429,13 @@ class SubtaskProcessor:
         band_name: str,
         level: StorageLevel = StorageLevel.MEMORY
     ):
+        logger.debug(f'Push to reducer: {data_keys[0]}, Total len: {len(data_keys)}, subtask_id: {self.subtask.subtask_id}')
         serialization_tasks = [
             asyncio.create_task(AioSerializer(obj).run()) for obj in objects
         ]
         buffer_list = await asyncio.gather(*serialization_tasks)
+        logger.debug(
+            f'Push to reducer After serialize: {data_keys[0]}, Total len: {len(buffer_list)}, subtask_id: {self.subtask.subtask_id}')
         data_sizes = [sum(len(b) for b in buf) for buf in buffer_list]
         await self._storage_api.push(
             data_keys, buffer_list, data_sizes, address, level, band_name
