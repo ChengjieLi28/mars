@@ -290,6 +290,13 @@ class StorageAPI(AbstractStorageAPI):
             self._session_id, data_key, size, level
         )
 
+    async def open_unified_writer(
+        self, data_keys: List, sizes: List[int], level: StorageLevel
+    ) -> WrappedStorageFileObject:
+        return await self._storage_handler_ref.open_unified_writer(
+            self._session_id, data_keys, sizes, level
+        )
+
     async def list(self, level: StorageLevel) -> List:
         """
         List all stored data_keys in storage.
