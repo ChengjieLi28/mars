@@ -339,7 +339,6 @@ class MemQuotaActor(QuotaActor):
         )
 
     async def _has_space(self, delta: int):
-        delta *= 0.1
         if self._hard_limit is None:
             return await super()._has_space(delta)
 
@@ -350,6 +349,7 @@ class MemQuotaActor(QuotaActor):
             - max(0, mem_stats.total - self._hard_limit)
             - (self._total_allocated - self._total_hold)
         )
+        available_size = mem_stats.available
         if max(delta, 0) >= available_size:
             logger.warning(
                 "%s met hard memory limitation: request %d, available %d, hard limit %d",
