@@ -98,7 +98,7 @@ class StorageAPI(AbstractStorageAPI):
         level: StorageLevel,
         band_name: str = "numa-0",
     ):
-        logger.debug(f'Before push {data_keys[0]}, len: {data_keys}')
+        logger.debug(f'Before push {data_keys[0]}, len: {len(data_keys)}')
         await self._send_manager_ref.send_memory_data(
             self._session_id, data_keys, datas, data_sizes,
             address, level, band_name

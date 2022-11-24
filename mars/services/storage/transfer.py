@@ -97,9 +97,11 @@ class SenderManagerActor(mo.StatelessActor):
         level: StorageLevel,
         band_name: str = "numa-0"
     ):
+        logger.debug(f'Enter send memory data: {data_keys[0]}, len: {len(datas)}')
         receiver_ref: mo.ActorRefType[
             ReceiverManagerActor
         ] = await self.get_receiver_ref(address, band_name)
+        logger.debug(f'After get receiver ref: {data_keys[0]}, len: {len(datas)}, address: {address}, band: {band_name}')
         is_transferring_list = await receiver_ref.open_writers(
             session_id, data_keys, data_sizes, level, multi=True
         )
@@ -295,6 +297,7 @@ class ReceiverManagerActor(mo.StatelessActor):
         data_sizes: List[int],
         level: StorageLevel,
     ):
+        logger.debug(f'Create unified_writer {data_keys[0]}, len: {len(data_sizes)}')
         being_processed = []
         tasks = []
         for data_key, data_size in zip(data_keys, data_sizes):
@@ -305,6 +308,7 @@ class ReceiverManagerActor(mo.StatelessActor):
                 being_processed.append(True)
                 self._writing_infos[(session_id, data_key)].ref_counts += 1
 
+        logger.debug(f'Create tasks for real {tasks[0]}, len: {len(tasks)}')
         if tasks:
             keys = [pair[0] for pair in tasks]
             sizes = [pair[1] for pair in tasks]
@@ -355,8 +359,10 @@ class ReceiverManagerActor(mo.StatelessActor):
         level: StorageLevel,
         multi: bool = False
     ):
+        logger.debug(f'Enter open writer for key {data_keys[0]}, len: {len(data_keys)}')
         async with self._lock:
             await self._storage_handler.request_quota_with_spill(level, sum(data_sizes))
+            logger.debug(f'After check spill {data_keys[0]}, len: {len(data_sizes)}, Multi: {multi}')
             if multi:
                 future = asyncio.create_task(
                     self.create_unified_writer(session_id, data_keys, data_sizes, level)
