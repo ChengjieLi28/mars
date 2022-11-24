@@ -413,7 +413,7 @@ class SubtaskProcessor:
             band = main_key_and_band[1][1]
             # print(address, band)
             # print()
-            logger.debug(f'Push Mapper Keys: {mapper_keys} to address {address}, band {band}, Len: {len(mapper_keys)}, Subtask id: {self.subtask.subtask_id}')
+            logger.debug(f'Push Mapper Keys: {mapper_keys[0]} to address {address}, band {band}, Len: {len(mapper_keys)}, Subtask id: {self.subtask.subtask_id}')
             push_tasks.append(
                 self._push_data_to_reducer(
                     mapper_keys, main_key_data, address, band
@@ -440,6 +440,7 @@ class SubtaskProcessor:
         await self._storage_api.push(
             data_keys, buffer_list, data_sizes, address, level, band_name
         )
+        logger.debug(f'Push done {data_keys[0]}, Len: {len(buffer_list)}, subtask_id: {self.subtask.subtask_id}')
 
     async def _store_meta(
         self,

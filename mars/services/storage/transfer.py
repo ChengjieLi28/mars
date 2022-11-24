@@ -122,7 +122,7 @@ class SenderManagerActor(mo.StatelessActor):
             await self._send_memory_data(
                 receiver_ref, session_id, to_send_keys, to_send_datas
             )
-        logger.debug(f'Waiting {to_wait_keys}, Len: {len(to_wait_keys)}')
+        logger.debug(f'Keys {data_keys[0]}, Waiting {to_wait_keys}, Len: {len(to_wait_keys)}')
         if to_wait_keys:
             await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
             logger.debug(f'Done Waiting {to_wait_keys}')
@@ -391,6 +391,7 @@ class ReceiverManagerActor(mo.StatelessActor):
             if is_eof:
                 close_tasks.append(writer.close())
                 finished_keys.extend(self._writing_infos[(session_id, data_key)].data_keys)
+                logger.debug(f'Close writer for keys {self._writing_infos[(session_id, data_key)].data_keys[0]}')
         await asyncio.gather(*close_tasks)
         async with self._lock:
             for data_key in finished_keys:
