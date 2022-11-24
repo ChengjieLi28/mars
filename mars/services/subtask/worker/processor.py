@@ -400,7 +400,7 @@ class SubtaskProcessor:
                     (result_chunk.key, reducer_index)
                 )
 
-        # push_tasks = []
+        push_tasks = []
         key_and_bands = []
         for main_key_and_band, mapper_keys in band_to_mapper_key.items():
             key_and_bands.append(main_key_and_band)
@@ -414,13 +414,13 @@ class SubtaskProcessor:
             # print(address, band)
             # print()
             logger.debug(f'Push Mapper Keys: {mapper_keys[0]} to address {address}, band {band}, Len: {len(mapper_keys)}, Subtask id: {self.subtask.subtask_id}')
-            await self._push_data_to_reducer(
-                mapper_keys, main_key_data, address, band
-            )
-            # push_tasks.append(
-            #
+            # await self._push_data_to_reducer(
+            #     mapper_keys, main_key_data, address, band
             # )
-        # await asyncio.gather(*push_tasks)
+            push_tasks.append(
+                self._push_data_to_reducer(mapper_keys, main_key_data, address, band)
+            )
+        await asyncio.gather(*push_tasks)
 
     async def _push_data_to_reducer(
         self,

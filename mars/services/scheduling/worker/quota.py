@@ -339,6 +339,7 @@ class MemQuotaActor(QuotaActor):
         )
 
     async def _has_space(self, delta: int):
+        delta *= 0.1
         if self._hard_limit is None:
             return await super()._has_space(delta)
 
