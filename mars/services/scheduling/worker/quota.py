@@ -339,31 +339,32 @@ class MemQuotaActor(QuotaActor):
         )
 
     async def _has_space(self, delta: int):
-        if self._hard_limit is None:
-            return await super()._has_space(delta)
-
-        mem_stats = mars_resource.virtual_memory()
-        # calc available physical memory
-        available_size = (
-            mem_stats.available
-            - max(0, mem_stats.total - self._hard_limit)
-            - (self._total_allocated - self._total_hold)
-        )
-        available_size = mem_stats.available
-        if max(delta, 0) >= available_size:
-            logger.warning(
-                "%s met hard memory limitation: request %d, available %d, hard limit %d",
-                self.uid,
-                delta,
-                available_size,
-                self._hard_limit,
-            )
-
-            if self._enable_kill_slot and self._slot_manager_ref is not None:
-                logger.info("Restarting free slots to obtain more memory")
-                await self._slot_manager_ref.restart_free_slots()
-            return False
-        return await super()._has_space(delta)
+        # if self._hard_limit is None:
+        #     return await super()._has_space(delta)
+        #
+        # mem_stats = mars_resource.virtual_memory()
+        # # calc available physical memory
+        # available_size = (
+        #     mem_stats.available
+        #     - max(0, mem_stats.total - self._hard_limit)
+        #     - (self._total_allocated - self._total_hold)
+        # )
+        # available_size = mem_stats.available
+        # if max(delta, 0) >= available_size:
+        #     logger.warning(
+        #         "%s met hard memory limitation: request %d, available %d, hard limit %d",
+        #         self.uid,
+        #         delta,
+        #         available_size,
+        #         self._hard_limit,
+        #     )
+        #
+        #     if self._enable_kill_slot and self._slot_manager_ref is not None:
+        #         logger.info("Restarting free slots to obtain more memory")
+        #         await self._slot_manager_ref.restart_free_slots()
+        #     return False
+        # return await super()._has_space(delta)
+        return True
 
     def _log_allocate(self, msg: str, *args, **kwargs):  # pragma: no cover
         if logger.getEffectiveLevel() > logging.DEBUG:
