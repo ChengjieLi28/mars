@@ -506,8 +506,8 @@ class StorageHandlerActor(mo.Actor):
     ):
         from .transfer import SenderManagerActor
 
-        for data_key in data_keys:
-            assert not isinstance(data_key, tuple)
+        # for data_key in data_keys:
+        #     assert not isinstance(data_key, tuple)
 
         logger.debug("Begin to fetch %s from band %s", data_keys, remote_band)
         sender_ref: mo.ActorRefType[SenderManagerActor] = await mo.actor_ref(

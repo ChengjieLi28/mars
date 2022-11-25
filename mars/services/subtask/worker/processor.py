@@ -348,7 +348,9 @@ class SubtaskProcessor:
                 raise
 
         if shuffle_key_to_data:
-            await self._send_map_data_to_reducer(shuffle_key_to_data)
+            asyncio.create_task(asyncio.to_thread(self._send_map_data_to_reducer(shuffle_key_to_data)))
+            # asyncio.create_task(self._send_map_data_to_reducer(shuffle_key_to_data))
+            # await self._send_map_data_to_reducer(shuffle_key_to_data)
 
         # clear data
         self._processor_context = ProcessorContext()
