@@ -14,6 +14,7 @@
 
 import asyncio
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional, Tuple, Union, ByteString
 
@@ -127,19 +128,31 @@ class SenderManagerActor(mo.StatelessActor):
             await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
             logger.debug(f'Done Waiting {to_wait_keys}')
 
-    @staticmethod
     async def _send_memory_data(
+        self,
         receiver_ref: mo.ActorRefType["ReceiverManagerActor"],
         session_id: str,
         data_keys: List[str],
         datas: List[Any],
+        data_sizes=None,
+        offsets=None
     ):
         sender = BufferedSender(session_id, receiver_ref)
-        for i, (data_key, data) in enumerate(zip(data_keys, datas)):
-            for j, d in enumerate(data):
-                is_eof = (i == len(data_keys) - 1) and (j == len(data) - 1)
-                await sender.send(d, is_eof, data_key)
-        await sender.flush()
+        if datas is not None:
+            for i, (data_key, data) in enumerate(zip(data_keys, datas)):
+                for j, d in enumerate(data):
+                    is_eof = (i == len(data_keys) - 1) and (j == len(data) - 1)
+                    await sender.send(d, is_eof, data_key)
+            await sender.flush()
+        else:
+            reader = await self._storage_handler.open_reader(session_id, data_keys[0])
+            for i, (key, size, offset) in enumerate(zip(data_keys, data_sizes, offsets)):
+                await reader.seek(offset)
+                data = await reader.read(size)
+                is_eof = i == len(data_keys) - 1
+                await sender.send(data, is_eof, key)
+            await sender.flush()
+            await reader.close()
 
     async def _send_data(
         self,
@@ -206,15 +219,67 @@ class SenderManagerActor(mo.StatelessActor):
             )
         await self._data_manager_ref.pin.batch(*pin_tasks)
         infos = await self._data_manager_ref.get_data_info.batch(*get_infos)
+        print(data_keys)
         filtered = [
             (data_info, data_key)
             for data_info, data_key in zip(infos, data_keys)
             if data_info is not None
         ]
+        # print(filtered)
         if filtered:
             infos, data_keys = zip(*filtered)
+            # print(data_keys, len(data_keys))
         else:  # pragma: no cover
             # no data to be transferred
+            return
+
+        # print(len(data_keys))
+        file_to_keys = defaultdict(list)
+        for data_info, data_key in zip(infos, data_keys):
+            if data_info.offset is not None:
+                file_to_keys[data_info.object_id].append((data_key, data_info))
+        # print(sum([len(x) for x in file_to_keys.values()]))
+
+        if file_to_keys:
+            if level is None:
+                level = infos[0].level
+            for obj_id, ts in file_to_keys.items():
+                keys = [s[0] for s in ts]
+                sizes = [s[1].store_size for s in ts]
+                offsets = [s[1].offset for s in ts]
+                is_transferring_list = await receiver_ref.open_writers(
+                    session_id, keys, sizes, level, multi=True
+                )
+                to_send_keys = []
+                to_send_sizes = []
+                to_send_offsets = []
+                to_wait_keys = []
+                for data_key, data_size, offset, is_transferring in zip(keys, sizes, offsets, is_transferring_list):
+                    if is_transferring:
+                        to_wait_keys.append(data_key)
+                    else:
+                        to_send_keys.append(data_key)
+                        to_send_sizes.append(data_size)
+                        to_send_offsets.append(offset)
+
+                # print(len(to_send_sizes))
+                if to_send_keys:
+                    # TODO
+                    await self._send_memory_data(
+                        receiver_ref, session_id, to_send_keys, None,
+                        data_sizes=to_send_sizes,
+                        offsets=to_send_offsets
+                    )
+                if to_wait_keys:
+                    await receiver_ref.wait_transfer_done(session_id, to_wait_keys)
+            unpin_tasks = []
+            for data_key in data_keys:
+                unpin_tasks.append(
+                    self._data_manager_ref.unpin.delay(
+                        session_id, [data_key], self._band_name, error="ignore"
+                    )
+                )
+            await self._data_manager_ref.unpin.batch(*unpin_tasks)
             return
         data_sizes = [info.store_size for info in infos]
         if level is None:

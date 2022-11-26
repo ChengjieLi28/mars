@@ -348,9 +348,9 @@ class SubtaskProcessor:
                 raise
 
         if shuffle_key_to_data:
-            asyncio.create_task(asyncio.to_thread(self._send_map_data_to_reducer, args=(shuffle_key_to_data,)))
+            # asyncio.create_task(asyncio.to_thread(self._send_map_data_to_reducer, args=(shuffle_key_to_data,)))
             # asyncio.create_task(self._send_map_data_to_reducer(shuffle_key_to_data))
-            # await self._send_map_data_to_reducer(shuffle_key_to_data)
+            await self._send_map_data_to_reducer(shuffle_key_to_data)
 
         # clear data
         self._processor_context = ProcessorContext()
@@ -440,19 +440,19 @@ class SubtaskProcessor:
         logger.debug(
             f'Push to reducer After serialize: {data_keys[0]}, Total len: {len(buffer_list)}, subtask_id: {self.subtask.subtask_id}')
         data_sizes = [sum(len(b) for b in buf) for buf in buffer_list]
-        if self._band[0] == address and self._band[1] == band_name:
-            logger.debug(f'Reducer exists locally! Write key {data_keys[0]} to local.')
-            f = await self._storage_api.open_unified_writer(
-                data_keys, data_sizes, level
-            )
-            for buffers in buffer_list:
-                for buf in buffers:
-                    await f.write(buf)
-            await f.close()
-        else:
-            await self._storage_api.push(
-                data_keys, buffer_list, data_sizes, address, level, band_name
-            )
+        # if self._band[0] == address and self._band[1] == band_name:
+        logger.debug(f'Reducer exists locally! Write key {data_keys[0]} to local.')
+        f = await self._storage_api.open_unified_writer(
+            data_keys, data_sizes, level
+        )
+        for buffers in buffer_list:
+            for buf in buffers:
+                await f.write(buf)
+        await f.close()
+        # else:
+        #     await self._storage_api.push(
+        #         data_keys, buffer_list, data_sizes, address, level, band_name
+        #     )
         logger.debug(f'Push done {data_keys[0]}, Len: {len(buffer_list)}, subtask_id: {self.subtask.subtask_id}')
 
     async def _store_meta(
