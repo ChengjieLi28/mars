@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import AppBar from '@mui/material/AppBar';
+import Container from '@mui/material/Container';
+import CssBaseline from '@mui/material/CssBaseline';
+import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import clsx from 'clsx';
 import React from 'react';
 import {
   HashRouter,
 } from 'react-router-dom';
-import clsx from 'clsx';
-import CssBaseline from '@material-ui/core/CssBaseline';
-import Drawer from '@material-ui/core/Drawer';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import Typography from '@material-ui/core/Typography';
-import Divider from '@material-ui/core/Divider';
-import IconButton from '@material-ui/core/IconButton';
-import Container from '@material-ui/core/Container';
-import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
-import ChevronRightIcon from '@material-ui/icons/ChevronRight';
+
 import LeftMenu from './LeftMenu';
 import PageRouter from './PageRouter';
-import { useStyles } from './Style';
+import {useStyles} from './Style';
 
 export default function MainFrame() {
   const classes = useStyles();
@@ -62,7 +63,7 @@ export default function MainFrame() {
           <LeftMenu />
           <Divider className={classes.leftMenuBottomItem} />
           <div className={`${classes.toolbarIcon} ${classes.leftMenuBottomItem}`}>
-            <IconButton onClick={handleDrawerStateChange}>
+            <IconButton onClick={handleDrawerStateChange} size="large">
               {open? <ChevronLeftIcon /> : <ChevronRightIcon />}
             </IconButton>
           </div>

@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-import { makeStyles } from '@material-ui/core/styles';
+import {createTheme} from '@mui/material';
+import {makeStyles} from '@mui/styles';
 
 const drawerWidth = 240;
+
+export const theme = createTheme();
 
 export const useStyles = makeStyles((theme) => ({
   root: {

@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
+import AssignmentReturnedIcon from '@mui/icons-material/AssignmentReturned';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import DescriptionIcon from '@mui/icons-material/Description';
+import GitHub from '@mui/icons-material/GitHub';
+import MemoryIcon from '@mui/icons-material/Memory';
+import SupervisedUserCircleIcon from '@mui/icons-material/SupervisedUserCircle';
+import Divider from '@mui/material/Divider';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Divider from '@material-ui/core/Divider';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import DashboardIcon from '@material-ui/icons/Dashboard';
-import SupervisedUserCircleIcon from '@material-ui/icons/SupervisedUserCircle';
-import MemoryIcon from '@material-ui/icons/Memory';
-import AssignmentReturnedIcon from '@material-ui/icons/AssignmentReturned';
-import DescriptionIcon from '@material-ui/icons/Description';
-import GitHub from '@material-ui/icons/GitHub';
-import { useStyles } from './Style';
+
+import {useStyles} from './Style';
 
 export default function LeftMenu() {
   const classes = useStyles();
@@ -45,13 +46,13 @@ export default function LeftMenu() {
         <React.Fragment>
           <Divider />
           <List component="div" disablePadding>
-            <ListItem button className={classes.nestedListItem}
+            <ListItemButton className={classes.nestedListItem}
               component={Link} to={`/${match[1]}/${match[2]}`}
               selected={true}
             >
               <ListItemIcon />
               <ListItemText primary={match[2]} />
-            </ListItem>
+            </ListItemButton>
           </List>
         </React.Fragment>
     );
@@ -64,13 +65,13 @@ export default function LeftMenu() {
         <React.Fragment>
           <Divider />
           <List component="div" disablePadding>
-            <ListItem button className={classes.nestedListItem}
+            <ListItemButton className={classes.nestedListItem}
               component={Link} to={`/session/${match[1]}/task`}
               selected={true}
             >
               <ListItemIcon />
               <ListItemText primary={match[1]} />
-            </ListItem>
+            </ListItemButton>
           </List>
         </React.Fragment>
     );
@@ -79,51 +80,51 @@ export default function LeftMenu() {
   return (
     <List className={classes.leftMenu}>
       <div>
-        <ListItem button component={Link} to="/" selected={hash === '/'}>
+        <ListItemButton component={Link} to="/" selected={hash === '/'}>
           <ListItemIcon>
             <DashboardIcon />
           </ListItemIcon>
           <ListItemText primary="Dashboard" />
-        </ListItem>
-        <ListItem button component={Link} to="/supervisor"
+        </ListItemButton>
+        <ListItemButton component={Link} to="/supervisor"
           selected={hash.startsWith('/supervisor')}
         >
           <ListItemIcon>
             <SupervisedUserCircleIcon />
           </ListItemIcon>
           <ListItemText primary="Supervisors" />
-        </ListItem>
+        </ListItemButton>
         {genNodeSubMenu('supervisor')}
-        <ListItem button component={Link} to="/worker"
+        <ListItemButton component={Link} to="/worker"
           selected={hash.startsWith('/worker')}
         >
           <ListItemIcon>
             <MemoryIcon />
           </ListItemIcon>
           <ListItemText primary="Workers" />
-        </ListItem>
+        </ListItemButton>
         {genNodeSubMenu('worker')}
-        <ListItem button component={Link} to="/session"
+        <ListItemButton component={Link} to="/session"
           selected={hash === '/session'}
         >
           <ListItemIcon>
             <AssignmentReturnedIcon />
           </ListItemIcon>
           <ListItemText primary="Sessions" />
-        </ListItem>
+        </ListItemButton>
         {genSessionSubMenu()}
-        <ListItem button component="a" href="https://docs.pymars.org" target="_blank">
+        <ListItemButton component="a" href="https://docs.pymars.org" target="_blank">
           <ListItemIcon>
             <DescriptionIcon />
           </ListItemIcon>
           <ListItemText primary="Documentation" />
-        </ListItem>
-        <ListItem button component="a" href="https://github.com/mars-project/mars" target="_blank">
+        </ListItemButton>
+        <ListItemButton component="a" href="https://github.com/mars-project/mars" target="_blank">
           <ListItemIcon>
             <GitHub />
           </ListItemIcon>
           <ListItemText primary="Repository" />
-        </ListItem>
+        </ListItemButton>
       </div>
     </List>
   );

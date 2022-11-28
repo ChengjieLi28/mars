@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import Typography from '@mui/material/Typography';
 import PropTypes from 'prop-types';
-import Typography from '@material-ui/core/Typography';
+import React from 'react';
 
 export default function Title(props) {
   return (

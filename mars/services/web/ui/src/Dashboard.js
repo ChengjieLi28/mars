@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import sum from 'lodash/sum';
 import uniq from 'lodash/uniq';
 import without from 'lodash/without';
-import Paper from '@material-ui/core/Paper';
-import Grid from '@material-ui/core/Grid';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
 import PropTypes from 'prop-types';
-import { useStyles } from './Style';
+import React from 'react';
+
+import {useStyles} from './Style';
 import Title from './Title';
-import { toReadableSize } from './Utils';
+import {toReadableSize} from './Utils';
 
 class NodeInfo extends React.Component {
   constructor(props) {
@@ -42,7 +43,7 @@ class NodeInfo extends React.Component {
     fetch(`api/cluster/nodes?role=${roleId}&env=1&resource=1&exclude_statuses=-1`)
       .then((res) => res.json())
       .then((res) => {
-        const { state } = this;
+        const {state} = this;
         state[this.nodeRole] = res.nodes;
         this.setState(state);
       });
@@ -79,7 +80,7 @@ class NodeInfo extends React.Component {
       memory_avail: gatherResourceStats('memory_avail'),
       git_branches: uniq(without(Object.values(roleData).map(
         (val) => {
-          const { git_info } = val.env;
+          const {git_info} = val.env;
           return git_info === undefined ? undefined : (`${git_info.hash} ${git_info.ref}`);
         },
       ), undefined)),
@@ -91,8 +92,8 @@ class NodeInfo extends React.Component {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell style={{ fontWeight: 'bolder' }}>Item</TableCell>
-            <TableCell style={{ fontWeight: 'bolder' }}>Value</TableCell>
+            <TableCell style={{fontWeight: 'bolder'}}>Item</TableCell>
+            <TableCell style={{fontWeight: 'bolder'}}>Value</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -154,13 +155,13 @@ export default function Dashboard() {
       <Grid item xs={12}>
         <Paper className={classes.paper}>
           <Title>Supervisors</Title>
-          <NodeInfo nodeRole="supervisor" />
+          <NodeInfo nodeRole="supervisor"/>
         </Paper>
       </Grid>
       <Grid item xs={12}>
         <Paper className={classes.paper}>
           <Title>Workers</Title>
-          <NodeInfo nodeRole="worker" />
+          <NodeInfo nodeRole="worker"/>
         </Paper>
       </Grid>
     </Grid>

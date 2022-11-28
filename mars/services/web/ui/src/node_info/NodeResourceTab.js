@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import Table from '@material-ui/core/Table';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import TableCell from '@material-ui/core/TableCell';
-import TableBody from '@material-ui/core/TableBody';
+import {TableContainer} from '@mui/material';
+import Paper from '@mui/material/Paper';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import PropTypes from 'prop-types';
+import React, {Fragment} from 'react';
+
 import Title from '../Title';
 import { toReadableSize } from '../Utils';
 
@@ -41,6 +44,7 @@ export default class NodeResourceTab extends React.Component {
         const { state } = this;
         state.loaded = true;
         state.resource = result.resource;
+        console.log(this.state.resource);
         state.detail = result.detail;
         this.setState(state);
       });
@@ -56,46 +60,106 @@ export default class NodeResourceTab extends React.Component {
   }
 
   generateBandRows() {
-    const rows = [];
+    const converted = {};
     Object.keys(this.state.resource).map((band) => {
-      const band_rows = [];
-      const band_res = this.state.resource[band];
-      if (band_res.cpu_avail !== undefined) {
-        band_rows.push([(<TableCell key={`${band}-cpu-item`}>CPU</TableCell>), (
-          <TableCell key={`${band}-cpu-value`}>
-            <div>
-              Usage: {(band_res.cpu_total - band_res.cpu_avail).toFixed(2)}
-            </div>
-            <div>
-              Total: {band_res.cpu_total.toFixed(2)}
-            </div>
-          </TableCell>
-        )]);
-      }
-      if (band_res.memory_avail !== undefined) {
-        band_rows.push([(<TableCell key={`${band}-memory-item`}>Memory</TableCell>), (
-          <TableCell key={`${band}-memory-value`}>
-            <div>
-              Usage: {toReadableSize(band_res.memory_total - band_res.memory_avail)}
-            </div>
-            <div>
-              Total: {toReadableSize(band_res.memory_total)}
-            </div>
-          </TableCell>
-        )]);
-      }
-      if (band_rows.length > 0) {
-        rows.push((
-          <TableRow key={`${band}-band`}>
-            <TableCell key={`${band}-band`} colSpan={2}>{band}</TableCell>
-          </TableRow>
-        ));
-        band_rows.map((cells, idx) => {
-          rows.push((<TableRow key={`${band}-${idx.toString()}`}>{cells}</TableRow>));
-        });
-      }
+      let detail = this.state.resource[band];
+      converted[band] = {
+        'CPU': {},
+        'Memory': {}
+      };
+      let cpuAvail = detail['cpu_avail'];
+      let cpuTotal = detail['cpu_total'];
+      let cpuUsage = (cpuTotal - cpuAvail).toFixed(2);
+
+      let memAvail = detail['memory_avail'];
+      let memTotal = detail['memory_total'];
+      let memUsage = toReadableSize(memTotal - memAvail);
+
+      converted[band]['CPU']['CpuUsage'] = cpuUsage;
+      converted[band]['CPU']['CpuTotal'] = cpuTotal.toFixed(2);
+
+      converted[band]['Memory']['MemUsage'] = memUsage;
+      converted[band]['Memory']['MemTotal'] = toReadableSize(memTotal);
     });
-    return rows;
+
+    return (
+      <TableContainer component={Paper}>
+        <Table sx={{ minWidth: 650 }} aria-label="simple table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Band</TableCell>
+              <TableCell align="right">Item</TableCell>
+              <TableCell align="right">Usage</TableCell>
+              <TableCell align="right">Total</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Object.keys(converted).map((band) => (
+              <Fragment key={band}>
+                <TableRow>
+                  <TableCell rowSpan={3}>
+                    {band}
+                  </TableCell>
+                </TableRow>
+
+                {Object.keys(converted[band]).map((item) => (
+                  <TableRow key={item}>
+                    <TableCell align="right">
+                      {item}
+                    </TableCell>
+                    {Object.keys(converted[band][item]).map((k) => (
+                      <TableCell key={k} align="right">
+                        {converted[band][item][k]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </Fragment>))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+
+    // const rows = [];
+    // Object.keys(this.state.resource).map((band) => {
+    //   const band_rows = [];
+    //   const band_res = this.state.resource[band];
+    //   if (band_res.cpu_avail !== undefined) {
+    //     band_rows.push([(<TableCell key={`${band}-cpu-item`}>CPU</TableCell>), (
+    //       <TableCell key={`${band}-cpu-value`}>
+    //         <div>
+    //           Usage: {(band_res.cpu_total - band_res.cpu_avail).toFixed(2)}
+    //         </div>
+    //         <div>
+    //           Total: {band_res.cpu_total.toFixed(2)}
+    //         </div>
+    //       </TableCell>
+    //     )]);
+    //   }
+    //   if (band_res.memory_avail !== undefined) {
+    //     band_rows.push([(<TableCell key={`${band}-memory-item`}>Memory</TableCell>), (
+    //       <TableCell key={`${band}-memory-value`}>
+    //         <div>
+    //           Usage: {toReadableSize(band_res.memory_total - band_res.memory_avail)}
+    //         </div>
+    //         <div>
+    //           Total: {toReadableSize(band_res.memory_total)}
+    //         </div>
+    //       </TableCell>
+    //     )]);
+    //   }
+    //   if (band_rows.length > 0) {
+    //     rows.push((
+    //       <TableRow key={`${band}-band`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+    //         <TableCell key={`${band}-band`} colSpan={2}>{band}</TableCell>
+    //       </TableRow>
+    //     ));
+    //     band_rows.map((cells, idx) => {
+    //       rows.push((<TableRow key={`${band}-${idx.toString()}`}>{cells}</TableRow>));
+    //     });
+    //   }
+    // });
+    // return rows;
   }
 
   generateDiskRows() {
@@ -169,17 +233,31 @@ export default class NodeResourceTab extends React.Component {
     return (
       <div>
         <Title component="h3">Bands</Title>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell style={{ fontWeight: 'bolder' }}>Item</TableCell>
-              <TableCell style={{ fontWeight: 'bolder' }}>Value</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {this.generateBandRows()}
-          </TableBody>
-        </Table>
+        {this.generateBandRows()}
+        {/*<TableContainer component={Paper}>*/}
+        {/*  <Table sx={{ minWidth: 650 }}>*/}
+        {/*    <TableHead>*/}
+        {/*      <TableRow>*/}
+        {/*        <TableCell>Item</TableCell>*/}
+        {/*        <TableCell align="right">Value</TableCell>*/}
+        {/*      </TableRow>*/}
+        {/*    </TableHead>*/}
+        {/*    <TableBody>*/}
+        {/*      */}
+        {/*    </TableBody>*/}
+        {/*  </Table>*/}
+        {/*</TableContainer>*/}
+        {/*<Table>*/}
+        {/*  <TableHead>*/}
+        {/*    <TableRow>*/}
+        {/*      <TableCell style={{ fontWeight: 'bolder' }}>Item</TableCell>*/}
+        {/*      <TableCell style={{ fontWeight: 'bolder' }}>Value</TableCell>*/}
+        {/*    </TableRow>*/}
+        {/*  </TableHead>*/}
+        {/*  <TableBody>*/}
+        {/*    {this.generateBandRows()}*/}
+        {/*  </TableBody>*/}
+        {/*</Table>*/}
         <Title component="h3">IO Summary</Title>
         <Table>
           <TableHead>
