@@ -15,11 +15,11 @@
  */
 import React from 'react';
 import Title from '../Title';
-import Paper from '@material-ui/core/Paper';
+import Paper from '@mui/material/Paper';
 import {formatTime} from '../Utils';
-import Button from '@material-ui/core/Button';
-import SaveIcon from '@material-ui/icons/Save';
-import Grid from '@material-ui/core/Grid';
+import Button from '@mui/material/Button';
+import SaveAltIcon from '@mui/icons-material/SaveAlt';
+import Grid from '@mui/material/Grid';
 import PropTypes from 'prop-types';
 import streamSaver from 'streamsaver';
 
@@ -67,7 +67,7 @@ export default class NodeLogTab extends React.Component {
               variant="contained"
               color="primary"
               size="small"
-              startIcon={<SaveIcon/>}
+              startIcon={<SaveAltIcon/>}
               onClick={() => this.downloadLogs()}
             >Save
             </Button>
